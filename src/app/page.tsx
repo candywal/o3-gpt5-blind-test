@@ -20,8 +20,9 @@ export default function Home() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Request failed");
       setOutputs(data.outputs);
-    } catch (e: any) {
-      setError(e.message || "Unexpected error");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Unexpected error";
+      setError(msg);
     } finally {
       setLoading(false);
     }

@@ -26,27 +26,41 @@ export async function POST(req: NextRequest) {
     const { openaiTemperature, paraphraseTemperature, maxOutputTokens } = getTuning();
 
     // Call OpenAI o3 and GPT-5 in parallel
-    const [o3Resp, gpt5Resp] = await Promise.all([
-      openai.responses.create({
+    const [o3RespU, gpt5RespU] = await Promise.all([
+      (openai.responses.create as unknown as (
+        args: Record<string, unknown>
+      ) => Promise<unknown>)({
         model: reasoningModel,
         input: prompt,
         temperature: openaiTemperature,
         max_output_tokens: maxOutputTokens,
-      } as any),
-      openai.responses.create({
+      }),
+      (openai.responses.create as unknown as (
+        args: Record<string, unknown>
+      ) => Promise<unknown>)({
         model: thinkingModel,
         input: prompt,
         temperature: openaiTemperature,
         max_output_tokens: maxOutputTokens,
-      } as any),
+      }),
     ]);
 
-    const o3Text = o3Resp.output_text ?? "";
-    const gpt5Text = gpt5Resp.output_text ?? "";
+    const getOutputText = (resp: unknown): string => {
+      if (resp && typeof resp === "object" && "output_text" in resp) {
+        const val = (resp as { output_text?: unknown }).output_text;
+        if (typeof val === "string") return val;
+      }
+      return "";
+    };
+
+    const o3Text = getOutputText(o3RespU);
+    const gpt5Text = getOutputText(gpt5RespU);
 
     // Paraphrase with Claude Opus 4.1 in parallel
     const [paraA, paraB] = await Promise.all([
-      anthropic.messages.create({
+      (anthropic.messages.create as unknown as (
+        args: Record<string, unknown>
+      ) => Promise<unknown>)({
         model: claudeModel,
         max_tokens: maxOutputTokens,
         temperature: paraphraseTemperature,
@@ -54,7 +68,9 @@ export async function POST(req: NextRequest) {
           { role: "user", content: buildParaphrasePrompt(o3Text) },
         ],
       }),
-      anthropic.messages.create({
+      (anthropic.messages.create as unknown as (
+        args: Record<string, unknown>
+      ) => Promise<unknown>)({
         model: claudeModel,
         max_tokens: maxOutputTokens,
         temperature: paraphraseTemperature,
@@ -64,8 +80,20 @@ export async function POST(req: NextRequest) {
       }),
     ]);
 
-    const getAnthropicText = (m: any) =>
-      (m?.content?.[0]?.text as string) || "";
+    type MinimalAnthropicMessage = {
+      content?: Array<{ type?: string; text?: string }>;
+    };
+    const getAnthropicText = (m: unknown): string => {
+      const msg = m as MinimalAnthropicMessage;
+      if (!msg?.content || !Array.isArray(msg.content)) return "";
+      for (const part of msg.content) {
+        if (part && part.type === "text" && typeof part.text === "string") {
+          return part.text;
+        }
+      }
+      const first = msg.content[0] as { text?: unknown } | undefined;
+      return typeof first?.text === "string" ? first.text : "";
+    };
 
     const A = getAnthropicText(paraA);
     const B = getAnthropicText(paraB);
@@ -83,12 +111,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       outputs: items.map((it, idx) => ({ key: String(idx + 1), text: it.text })),
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("blind-compare error", err);
-    return NextResponse.json(
-      { error: err?.message || "Unknown error" },
-      { status: 400 }
-    );
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return NextResponse.json({ error: message }, { status: 400 });
   }
 }
 
