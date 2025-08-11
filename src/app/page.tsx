@@ -52,8 +52,8 @@ export default function Home() {
       if (!res.ok) throw new Error(data.error || "Request failed");
       setOutputs(data.outputs);
       setTrialId(data.trialId);
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Unexpected error";
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : "Unexpected error";
       setError(msg);
     } finally {
       setLoading(false);
@@ -72,7 +72,7 @@ export default function Home() {
       const s = await fetch("/api/stats").then((r) => r.json());
       setStats(s);
       setShowModal(true);
-    } catch (e) {}
+    } catch {}
   }
 
   async function doReveal() {
@@ -97,7 +97,7 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 transition-colors duration-300">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 transition-colors duration-300">
       <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg%20width%3D%2260%22%20height%3D%2260%22%20viewBox%3D%220%200%2060%2060%22%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%3E%3Cg%20fill%3D%22none%22%20fill-rule%3D%22evenodd%22%3E%3Cg%20fill%3D%22%239C92AC%22%20fill-opacity%3D%220.03%22%3E%3Ccircle%20cx%3D%2230%22%20cy%3D%2230%22%20r%3D%221.5%22/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')] opacity-40"></div>
       
       <div className="relative min-h-screen p-4 sm:p-8">
@@ -137,8 +137,13 @@ export default function Home() {
             <div className="mb-6">
               <h2 className="text-xl font-semibold mb-2">Enter Your Prompt</h2>
               <p className="text-sm text-slate-600">
-                We'll generate responses from both o3 and GPT-5, paraphrase them with Claude Opus 4.1 to normalize style, and present them blind for comparison.
+                We&apos;ll generate responses from both o3 and GPT-5, paraphrase them with Claude Opus 4.1 to normalize style, and present them blind for comparison.
               </p>
+              <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-xs text-blue-700">
+                  <strong>Note:</strong> This app requires OpenAI and Anthropic API keys. Copy .env.example to .env.local and add your keys to get started.
+                </p>
+              </div>
             </div>
             
             <div className="space-y-4">
@@ -146,7 +151,7 @@ export default function Home() {
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 placeholder="Ask anything... Try questions about coding, creative writing, analysis, or problem-solving"
-                className="w-full border border-slate-200 rounded-xl p-4 h-32 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400 transition-all duration-200 resize-none bg-white/90"
+                className="w-full border border-slate-200 rounded-xl p-4 h-32 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400 transition-all duration-200 resize-none bg-white text-slate-900 placeholder-slate-500"
                 maxLength={2000}
               />
               
@@ -269,7 +274,7 @@ export default function Home() {
                           <select 
                             value={chat.key ?? o.key} 
                             onChange={(e) => setChat((c) => ({ ...c, key: (e.target.value as "1" | "2") || null }))} 
-                            className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white/90 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                            className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                           >
                             <option value="1">Chat with Output 1</option>
                             <option value="2">Chat with Output 2</option>
@@ -278,7 +283,7 @@ export default function Home() {
                             value={chat.text} 
                             onChange={(e) => setChat((c) => ({ ...c, text: e.target.value }))} 
                             placeholder="Ask a follow-up question..."
-                            className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white/90 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                            className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white text-slate-900 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                           />
                           <button 
                             onClick={sendChat} 
@@ -493,7 +498,7 @@ export default function Home() {
                       <select 
                         value={chat.key ?? ""} 
                         onChange={(e) => setChat((c) => ({ ...c, key: (e.target.value as "1" | "2") || null }))} 
-                        className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white/90 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                        className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                       >
                         <option value="">Choose output...</option>
                         <option value="1">Chat with Output 1</option>
@@ -504,7 +509,7 @@ export default function Home() {
                           value={chat.text} 
                           onChange={(e) => setChat((c) => ({ ...c, text: e.target.value }))} 
                           placeholder="Ask a follow-up question..."
-                          className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white/90 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                          className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white text-slate-900 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
                         />
                         <button 
                           onClick={sendChat} 

@@ -125,7 +125,17 @@ export async function POST(req: NextRequest) {
     });
   } catch (err: unknown) {
     console.error("blind-compare error", err);
-    const message = err instanceof Error ? err.message : "Unknown error";
+    let message = err instanceof Error ? err.message : "Unknown error";
+    
+    // Provide helpful error messages for common issues
+    if (message.includes("OPENAI_API_KEY")) {
+      message = "OpenAI API key is missing. Please set OPENAI_API_KEY in your .env.local file.";
+    } else if (message.includes("ANTHROPIC_API_KEY")) {
+      message = "Anthropic API key is missing. Please set ANTHROPIC_API_KEY in your .env.local file.";
+    } else if (message.includes("not found") || message.includes("404")) {
+      message = "Model not available. Please check your model configuration.";
+    }
+    
     return NextResponse.json({ error: message }, { status: 400 });
   }
 }
