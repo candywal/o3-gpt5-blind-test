@@ -25,55 +25,83 @@ export async function POST(req: NextRequest) {
     const { paraphraseTemperature, maxOutputTokens } = getTuning();
 
     // Call OpenAI o3 and GPT-5 in parallel
+    console.log("Making OpenAI API calls...", { reasoningModel, thinkingModel });
     const [o3RespU, gpt5RespU] = await Promise.all([
-      (openai.responses.create as unknown as (
-        args: Record<string, unknown>
-      ) => Promise<unknown>)({
+      openai.chat.completions.create({
         model: reasoningModel,
-        input: prompt,
-        max_output_tokens: maxOutputTokens,
+        messages: [{ role: "user", content: prompt }],
+        max_completion_tokens: maxOutputTokens,
+      }).catch(err => {
+        console.error("o3 API error:", err);
+        throw err;
       }),
-      (openai.responses.create as unknown as (
-        args: Record<string, unknown>
-      ) => Promise<unknown>)({
+      openai.chat.completions.create({
         model: thinkingModel,
-        input: prompt,
-        max_output_tokens: maxOutputTokens,
+        messages: [{ role: "user", content: prompt }],
+        max_completion_tokens: maxOutputTokens,
+      }).catch(err => {
+        console.error("gpt5 API error:", err);
+        throw err;
       }),
     ]);
 
     const getOutputText = (resp: unknown): string => {
-      if (resp && typeof resp === "object" && "output_text" in resp) {
-        const val = (resp as { output_text?: unknown }).output_text;
-        if (typeof val === "string") return val;
+      if (resp && typeof resp === "object") {
+        // Handle standard OpenAI chat completion response
+        const completion = resp as {
+          choices?: Array<{
+            message?: {
+              content?: string;
+            };
+          }>;
+          output_text?: string;
+        };
+        if (completion.choices && completion.choices[0] && completion.choices[0].message) {
+          return completion.choices[0].message.content || "";
+        }
+        // Fallback for other response formats
+        if ("output_text" in resp) {
+          const val = (resp as { output_text?: unknown }).output_text;
+          if (typeof val === "string") return val;
+        }
       }
       return "";
     };
 
     const o3Text = getOutputText(o3RespU);
     const gpt5Text = getOutputText(gpt5RespU);
+    
+    console.log("OpenAI responses:", { 
+      o3Length: o3Text.length, 
+      gpt5Length: gpt5Text.length,
+      o3Preview: o3Text.substring(0, 100),
+      gpt5Preview: gpt5Text.substring(0, 100)
+    });
 
     // Paraphrase with Claude Opus 4.1 in parallel
+    console.log("Making Claude API calls...", { claudeModel });
     const [paraA, paraB] = await Promise.all([
-      (anthropic.messages.create as unknown as (
-        args: Record<string, unknown>
-      ) => Promise<unknown>)({
+      anthropic.messages.create({
         model: claudeModel,
         max_tokens: maxOutputTokens,
         temperature: paraphraseTemperature,
         messages: [
           { role: "user", content: buildParaphrasePrompt(o3Text) },
         ],
+      }).catch(err => {
+        console.error("Claude API error (o3 paraphrase):", err);
+        throw err;
       }),
-      (anthropic.messages.create as unknown as (
-        args: Record<string, unknown>
-      ) => Promise<unknown>)({
+      anthropic.messages.create({
         model: claudeModel,
         max_tokens: maxOutputTokens,
         temperature: paraphraseTemperature,
         messages: [
           { role: "user", content: buildParaphrasePrompt(gpt5Text) },
         ],
+      }).catch(err => {
+        console.error("Claude API error (gpt5 paraphrase):", err);
+        throw err;
       }),
     ]);
 

@@ -139,11 +139,6 @@ export default function Home() {
               <p className="text-sm text-slate-600">
                 We&apos;ll generate responses from both o3 and GPT-5, paraphrase them with Claude Opus 4.1 to normalize style, and present them blind for comparison.
               </p>
-              <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-xs text-blue-700">
-                  <strong>Note:</strong> This app requires OpenAI and Anthropic API keys. Copy .env.example to .env.local and add your keys to get started.
-                </p>
-              </div>
             </div>
             
             <div className="space-y-4">
