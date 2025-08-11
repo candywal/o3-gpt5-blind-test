@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAnthropicClient, getModelIds, getOpenAIClient, getTuning } from "@/lib/clients";
+import { getStore } from "@/lib/store";
 import { z } from "zod";
 
 const BodySchema = z.object({
@@ -23,7 +24,7 @@ export async function POST(req: NextRequest) {
     const openai = getOpenAIClient();
     const anthropic = getAnthropicClient();
     const { reasoningModel, thinkingModel, claudeModel } = getModelIds();
-    const { openaiTemperature, paraphraseTemperature, maxOutputTokens } = getTuning();
+    const { paraphraseTemperature, maxOutputTokens } = getTuning();
 
     // Call OpenAI o3 and GPT-5 in parallel
     const [o3RespU, gpt5RespU] = await Promise.all([
@@ -32,7 +33,6 @@ export async function POST(req: NextRequest) {
       ) => Promise<unknown>)({
         model: reasoningModel,
         input: prompt,
-        temperature: openaiTemperature,
         max_output_tokens: maxOutputTokens,
       }),
       (openai.responses.create as unknown as (
@@ -40,7 +40,6 @@ export async function POST(req: NextRequest) {
       ) => Promise<unknown>)({
         model: thinkingModel,
         input: prompt,
-        temperature: openaiTemperature,
         max_output_tokens: maxOutputTokens,
       }),
     ]);
@@ -99,7 +98,7 @@ export async function POST(req: NextRequest) {
     const B = getAnthropicText(paraB);
 
     // Randomize order so user cannot infer which is which
-    const items: Array<{ id: string; text: string }> = [
+    const items: Array<{ id: "o3" | "gpt5"; text: string }> = [
       { id: "o3", text: A },
       { id: "gpt5", text: B },
     ];
@@ -108,8 +107,23 @@ export async function POST(req: NextRequest) {
       [items[i], items[j]] = [items[j], items[i]];
     }
 
+    const key1Model = items[0].id;
+    const key2Model = items[1].id;
+
+    const store = getStore();
+    const trial = store.createTrial({
+      prompt,
+      order: { "1": key1Model, "2": key2Model },
+      raw: { o3: o3Text, gpt5: gpt5Text },
+      paraphrased: { "1": items[0].text, "2": items[1].text },
+    });
+
     return NextResponse.json({
-      outputs: items.map((it, idx) => ({ key: String(idx + 1), text: it.text })),
+      trialId: trial.trialId,
+      outputs: [
+        { key: "1", text: trial.paraphrased["1"] },
+        { key: "2", text: trial.paraphrased["2"] },
+      ],
     });
   } catch (err: unknown) {
     console.error("blind-compare error", err);

@@ -5,7 +5,10 @@ export default function Home() {
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
   const [outputs, setOutputs] = useState<{ key: string; text: string }[] | null>(null);
+  const [trialId, setTrialId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [chosen, setChosen] = useState<string | null>(null);
+  const [stats, setStats] = useState<null | { totalTrials: number; totalChoices: number; modelWins: { o3: number; gpt5: number } }>(null);
 
   async function runCompare() {
     setLoading(true);
@@ -20,12 +23,28 @@ export default function Home() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Request failed");
       setOutputs(data.outputs);
+      setTrialId(data.trialId);
+      setChosen(null);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Unexpected error";
       setError(msg);
     } finally {
       setLoading(false);
     }
+  }
+
+  async function choose(key: "1" | "2") {
+    if (!trialId) return;
+    setChosen(key);
+    try {
+      await fetch("/api/select", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ trialId, choiceKey: key, participantId: "anon" }),
+      });
+      const s = await fetch("/api/stats").then((r) => r.json());
+      setStats(s);
+    } catch (e) {}
   }
 
   return (
@@ -64,11 +83,37 @@ export default function Home() {
         {outputs && (
           <div className="mt-6 grid gap-4 sm:grid-cols-2">
             {outputs.map((o) => (
-              <div key={o.key} className="border rounded-lg p-4 whitespace-pre-wrap bg-white">
-                <div className="text-xs text-gray-500 mb-2">Output {o.key}</div>
+              <button
+                key={o.key}
+                onClick={() => choose(o.key as "1" | "2")}
+                className={`text-left border rounded-lg p-4 whitespace-pre-wrap bg-white hover:border-black/40 transition ${
+                  chosen === o.key ? "ring-2 ring-blue-500" : ""
+                }`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-xs text-gray-500">Output {o.key}</div>
+                  <div className="text-xs text-gray-400">Click to choose</div>
+                </div>
                 {o.text}
-              </div>
+              </button>
             ))}
+          </div>
+        )}
+
+        {chosen && (
+          <div className="mt-6 p-3 rounded-md bg-green-50 border text-green-900 text-sm">
+            You selected Output {chosen}. Thanks! Stats below update as you vote.
+          </div>
+        )}
+
+        {stats && (
+          <div className="mt-6 border rounded-lg p-4 bg-white">
+            <div className="font-medium mb-2">Aggregate stats (this server session)</div>
+            <div className="text-sm text-gray-700">Trials: {stats.totalTrials}</div>
+            <div className="text-sm text-gray-700">Choices: {stats.totalChoices}</div>
+            <div className="text-sm text-gray-700 mt-2">Wins</div>
+            <div className="text-sm">o3: {stats.modelWins.o3}</div>
+            <div className="text-sm">gpt-5: {stats.modelWins.gpt5}</div>
           </div>
         )}
       </div>
