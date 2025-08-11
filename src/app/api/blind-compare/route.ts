@@ -8,12 +8,10 @@ const BodySchema = z.object({
 });
 
 function buildParaphrasePrompt(text: string) {
-  return (
-    "Paraphrase the following text to preserve factual content and reasoning, while removing stylistic fingerprints (tone, phrasing, idioms).\n" +
-    "Do NOT add or remove information. Keep structure simple and neutral.\n" +
-    "Return plain text only.\n\n" +
-    text
-  );
+  const prefix =
+    process.env.PARAPHRASE_PROMPT_PREFIX ||
+    "Paraphrase the following text to preserve factual content and reasoning, while removing stylistic fingerprints (tone, phrasing, idioms). Do NOT add or remove information. Keep structure simple and neutral. Return plain text only.";
+  return `${prefix}\n\n${text}`;
 }
 
 export async function POST(req: NextRequest) {

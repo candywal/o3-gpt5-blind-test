@@ -15,8 +15,8 @@ export async function POST(req: NextRequest) {
     const store = getStore();
     const trial = store.getTrial(trialId);
     if (!trial) return NextResponse.json({ error: "Trial not found" }, { status: 404 });
-    const modelId = trial.order[key] === "o3" ? "o3" : "gpt-5";
-    const rawBase = trial.raw[modelId];
+    const modelId = trial.order[key] === "o3" ? "o3" : ("gpt-5" as const);
+    const rawBase = modelId === "o3" ? trial.raw.o3 : trial.raw.gpt5;
     const openai = getOpenAIClient();
     const { maxOutputTokens } = getTuning();
 
@@ -30,10 +30,13 @@ export async function POST(req: NextRequest) {
       max_output_tokens: maxOutputTokens,
     });
 
-    const getOutputText = (r: unknown): string =>
-      r && typeof r === "object" && "output_text" in r && typeof (r as any).output_text === "string"
-        ? ((r as unknown as { output_text: string }).output_text)
-        : "";
+    const getOutputText = (r: unknown): string => {
+      if (r && typeof r === "object" && "output_text" in r) {
+        const possible = (r as { output_text?: unknown }).output_text;
+        if (typeof possible === "string") return possible;
+      }
+      return "";
+    };
 
     return NextResponse.json({ text: getOutputText(resp) });
   } catch (err: unknown) {
